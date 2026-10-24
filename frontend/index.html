@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ResumeIQ — AI Resume Analyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ─── Variables ─────────────────────────────────────────── */
+    :root {
+      --bg       : #0b0c10;
+      --surface  : #13151c;
+      --card     : #1a1d27;
+      --border   : #2a2d3e;
+      --accent   : #6ee7b7;   /* mint  */
+      --accent2  : #818cf8;   /* indigo */
+      --success  : #4ade80;
+      --warning  : #fbbf24;
+      --danger   : #f87171;
+      --text     : #e2e8f0;
+      --muted    : #64748b;
+      --radius   : 14px;
+      --fh       : 'Syne', sans-serif;
+      --fb       : 'DM Sans', sans-serif;
+    }
+
+    /* ─── Reset ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--fb);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(110,231,183,.04) 1px, transparent 1px),
+        linear-gradient(90deg,rgba(110,231,183,.04) 1px,transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ─── Header ─────────────────────────────────────────────── */
+    header {
+      position: relative; z-index: 10;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 40px;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      background: rgba(11,12,16,.85);
+    }
+    .logo { font-family: var(--fh); font-size: 1.5rem; color: var(--accent); letter-spacing: -.5px; }
+    .logo span { color: var(--accent2); }
+    .hbadge {
+      font-size:.7rem; font-weight:500;
+      background:rgba(110,231,183,.1); color:var(--accent);
+      border:1px solid rgba(110,231,183,.25);
+      border-radius:20px; padding:4px 12px; letter-spacing:.05em;
+    }
+
+    /* ─── Hero ───────────────────────────────────────────────── */
+    .hero { position:relative; z-index:1; text-align:center; padding:80px 20px 50px; }
+    .hero h1 {
+      font-family:var(--fh); font-size:clamp(2.2rem,6vw,4rem);
+      line-height:1.1; color:#fff; letter-spacing:-1.5px;
+    }
+    .hero h1 em {
+      font-style:normal;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .hero p { margin-top:16px; color:var(--muted); font-size:1rem; max-width:520px; margin-inline:auto; }
+
+    /* ─── Tabs ───────────────────────────────────────────────── */
+    .tabs-wrap {
+      position:relative; z-index:1;
+      display:flex; justify-content:center; gap:8px; padding:0 20px 40px;
+    }
+    .tab-btn {
+      font-family:var(--fb); font-size:.9rem; font-weight:500;
+      padding:10px 28px; border-radius:40px;
+      border:1px solid var(--border); background:var(--surface);
+      color:var(--muted); cursor:pointer; transition:all .25s;
+    }
+    .tab-btn:hover { border-color:var(--accent); color:var(--text); }
+    .tab-btn.active {
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#0b0c10; border-color:transparent; font-weight:700;
+      box-shadow:0 0 30px rgba(110,231,183,.25);
+    }
+
+    /* ─── Main ───────────────────────────────────────────────── */
+    main { position:relative; z-index:1; max-width:900px; margin:0 auto; padding:0 20px 100px; }
+    .tab-panel { display:none; animation:fadeUp .3s ease; }
+    .tab-panel.active { display:block; }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(16px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* ─── Cards ──────────────────────────────────────────────── */
+    .card {
+      background:var(--card); border:1px solid var(--border);
+      border-radius:var(--radius); padding:28px 32px; margin-bottom:20px;
+    }
+    .card-title {
+      font-family:var(--fh); font-size:.95rem; color:var(--accent);
+      text-transform:uppercase; letter-spacing:.1em; margin-bottom:18px;
+      display:flex; align-items:center; gap:8px;
+    }
+    .card-title::before {
+      content:''; width:4px; height:16px;
+      background:var(--accent); border-radius:2px;
+    }
+
+    /* ─── Form ───────────────────────────────────────────────── */
+    label {
+      display:block; font-size:.8rem; font-weight:500; color:var(--muted);
+      margin-bottom:7px; text-transform:uppercase; letter-spacing:.06em;
+    }
+    input[type="file"] { display:none; }
+    textarea {
+      width:100%; background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; color:var(--text); font-family:var(--fb);
+      font-size:.92rem; padding:14px 16px; resize:vertical; min-height:140px;
+      transition:border-color .2s; outline:none;
+    }
+    textarea:focus { border-color:var(--accent); }
+    textarea::placeholder { color:var(--muted); }
+
+    /* ─── Drop zones ─────────────────────────────────────────── */
+    .drop {
+      border:2px dashed var(--border); border-radius:var(--radius);
+      padding:36px 20px; text-align:center; cursor:pointer;
+      transition:all .25s; background:var(--surface); margin-bottom:20px;
+    }
+    .drop:hover,.drop.over { border-color:var(--accent); background:rgba(110,231,183,.05); }
+    .drop .dicon { font-size:2.4rem; margin-bottom:8px; }
+    .drop p { color:var(--muted); font-size:.9rem; }
+    .drop .fname { margin-top:8px; color:var(--accent); font-weight:500; font-size:.9rem; }
+
+    .drop-multi { border-color:var(--border); }
+    .drop-multi:hover,.drop-multi.over { border-color:var(--accent2); background:rgba(129,140,248,.05); }
+
+    .pills { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
+    .pill {
+      font-size:.78rem; font-weight:500;
+      background:rgba(129,140,248,.12); color:var(--accent2);
+      border:1px solid rgba(129,140,248,.25); border-radius:20px; padding:4px 12px;
+    }
+
+    /* ─── Buttons ────────────────────────────────────────────── */
+    .btn {
+      display:inline-flex; align-items:center; gap:8px;
+      font-family:var(--fb); font-size:.88rem; font-weight:600;
+      padding:12px 28px; border-radius:40px; border:none;
+      cursor:pointer; transition:all .22s; text-transform:uppercase; letter-spacing:.05em;
+    }
+    .btn:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-full  { width:100%; justify-content:center; margin-top:8px; }
+    .btn-sm    { padding:7px 16px; font-size:.78rem; }
+
+    .btn-primary {
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      color:#0b0c10; box-shadow:0 4px 24px rgba(110,231,183,.2);
+    }
+    .btn-primary:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 32px rgba(110,231,183,.35); }
+
+    .btn-outline {
+      background:transparent; color:var(--accent);
+      border:1px solid var(--accent);
+    }
+    .btn-outline:hover:not(:disabled) { background:rgba(110,231,183,.08); }
+
+    .btn-accept {
+      background:rgba(74,222,128,.15); color:var(--success);
+      border:1px solid rgba(74,222,128,.3);
+    }
+    .btn-reject {
+      background:rgba(248,113,113,.12); color:var(--danger);
+      border:1px solid rgba(248,113,113,.3);
+    }
+    .btn-download {
+      background:linear-gradient(135deg,#4ade80,#22d3ee);
+      color:#0b0c10; font-weight:700;
+      box-shadow:0 4px 24px rgba(74,222,128,.25);
+    }
+    .btn-download:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 8px 32px rgba(74,222,128,.4); }
+
+    /* ─── Score ring ─────────────────────────────────────────── */
+    .score-row    { display:flex; align-items:center; gap:28px; }
+    .ring-wrap    { position:relative; width:120px; height:120px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .ring-wrap svg { position:absolute; transform:rotate(-90deg); }
+    .ring-bg      { fill:none; stroke:var(--border); stroke-width:8; }
+    .ring-fill    { fill:none; stroke-width:8; stroke-linecap:round; stroke-dasharray:283; stroke-dashoffset:283; transition:stroke-dashoffset 1.2s cubic-bezier(.25,.8,.25,1),stroke .5s; }
+    .ring-center  { position:absolute; display:flex; flex-direction:column; align-items:center; }
+    .ring-num     { font-family:var(--fh); font-size:2.1rem; line-height:1; }
+    .ring-lbl     { font-size:.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+    .score-meta h3 { font-family:var(--fh); font-size:1.3rem; margin-bottom:6px; }
+    .bar-track    { background:var(--border); border-radius:4px; height:6px; overflow:hidden; margin-top:10px; }
+    .bar-fill     { height:100%; border-radius:4px; transition:width 1.2s cubic-bezier(.25,.8,.25,1); background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+
+    /* ─── Before/after score ──────────────────────────────────── */
+    .score-cmp { display:flex; align-items:center; justify-content:center; gap:18px; flex-wrap:wrap; padding:16px 0; }
+    .sbox { display:flex; flex-direction:column; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 28px; min-width:130px; }
+    .sbox .sl { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px; }
+    .sbox .sv { font-family:var(--fh); font-size:2.2rem; }
+    .sbox.orig .sv { color:var(--warning); }
+    .sbox.impr .sv { color:var(--success); }
+    .sarrow { font-size:1.8rem; color:var(--accent); }
+    .sdelta { display:flex; flex-direction:column; align-items:center; background:rgba(74,222,128,.08); border:1px solid rgba(74,222,128,.2); border-radius:12px; padding:14px 22px; }
+    .sdelta .dl { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+    .sdelta .dv { font-family:var(--fh); font-size:1.6rem; color:var(--success); }
+
+    /* ─── Stats chips ────────────────────────────────────────── */
+    .stats-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+    .chip { flex:1; min-width:90px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; text-align:center; }
+    .chip .cv { font-family:var(--fh); font-size:1.6rem; }
+    .chip .cl { font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+    .chip.c-total .cv { color:var(--accent2); }
+    .chip.c-strong .cv { color:var(--success); }
+    .chip.c-weak   .cv { color:var(--danger);  }
+
+    /* ─── Change cards ───────────────────────────────────────── */
+    .chg-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:14px; transition:border-color .2s,background .2s; }
+    .chg-card.accepted { border-color:rgba(74,222,128,.4);  background:rgba(74,222,128,.03); }
+    .chg-card.rejected { border-color:rgba(248,113,113,.3); background:rgba(248,113,113,.03); opacity:.6; }
+    .chg-head  { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+    .chg-acts  { display:flex; gap:8px; }
+
+    .blabel { font-size:.7rem; font-weight:600; padding:3px 10px; border-radius:20px; text-transform:uppercase; letter-spacing:.06em; }
+    .bl-w { background:rgba(248,113,113,.15); color:var(--danger);  border:1px solid rgba(248,113,113,.3); }
+    .bl-m { background:rgba(251,191,36,.15);  color:var(--warning); border:1px solid rgba(251,191,36,.3);  }
+    .bl-s { background:rgba(74,222,128,.15);  color:var(--success); border:1px solid rgba(74,222,128,.3);  }
+
+    .diff-lbl  { font-size:.7rem; font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+    .diff-before { background:rgba(248,113,113,.07); border-left:3px solid var(--danger);  border-radius:8px; padding:10px 14px; font-size:.87rem; color:#fca5a5; margin-bottom:6px; }
+    .diff-after  { background:rgba(74,222,128,.07);  border-left:3px solid var(--success); border-radius:8px; padding:10px 14px; font-size:.87rem; color:#86efac; margin-bottom:8px; }
+    .diff-before .diff-lbl { color:var(--danger);  }
+    .diff-after  .diff-lbl { color:var(--success); }
+    .chg-reason { font-size:.79rem; color:var(--muted); padding:8px 12px; background:rgba(129,140,248,.06); border-radius:6px; border-left:2px solid var(--accent2); }
+    .chg-reason strong { color:var(--accent2); }
+
+    /* ─── Strong bullets ─────────────────────────────────────── */
+    .strong-list { display:flex; flex-direction:column; gap:6px; }
+    .strong-item {
+      display:flex; align-items:flex-start; gap:8px;
+      background:rgba(74,222,128,.05); border:1px solid rgba(74,222,128,.15);
+      border-radius:8px; padding:8px 12px; font-size:.85rem; color:var(--text);
+    }
+    .strong-item::before { content:'✓'; color:var(--success); font-weight:700; flex-shrink:0; }
+
+    /* ─── Tips ───────────────────────────────────────────────── */
+    .tips-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; }
+    .tip-card {
+      background:rgba(110,231,183,.06); border:1px solid rgba(110,231,183,.15);
+      border-radius:8px; padding:10px 14px; font-size:.82rem; line-height:1.5;
+    }
+    .suggestions-box {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; padding:18px; font-size:.9rem; line-height:1.75; white-space:pre-wrap;
+    }
+
+    /* ─── Rankings ───────────────────────────────────────────── */
+    .rank-list { display:flex; flex-direction:column; gap:12px; }
+    .rank-item {
+      display:flex; align-items:center; gap:14px;
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:10px; padding:14px 18px; animation:fadeUp .4s ease;
+    }
+    .rank-item:nth-child(1) { border-left:3px solid #fbbf24; }
+    .rank-item:nth-child(2) { border-left:3px solid var(--muted); }
+    .rank-item:nth-child(3) { border-left:3px solid #cd7c2f; }
+    .rank-badge {
+      width:36px; height:36px; border-radius:50%; background:var(--border);
+      display:flex; align-items:center; justify-content:center;
+      font-family:var(--fh); font-size:1rem; flex-shrink:0;
+    }
+    .rank-item:nth-child(1) .rank-badge { background:rgba(251,191,36,.15); color:#fbbf24; }
+    .rank-item:nth-child(2) .rank-badge { background:rgba(100,116,139,.15); color:#94a3b8; }
+    .rank-item:nth-child(3) .rank-badge { background:rgba(205,124,47,.15);  color:#cd7c2f; }
+    .rank-info { flex:1; }
+    .rank-name { font-weight:600; font-size:.93rem; margin-bottom:2px; }
+    .rank-meta { font-size:.76rem; color:var(--muted); }
+    .rank-score { font-family:var(--fh); font-size:1.4rem; color:var(--accent); }
+    .rank-bar   { flex:1; background:var(--border); border-radius:4px; height:5px; overflow:hidden; max-width:110px; }
+    .rank-bar-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+
+    /* ─── Loader ─────────────────────────────────────────────── */
+    .loader { display:none; flex-direction:column; align-items:center; gap:14px; padding:40px; }
+    .loader.on { display:flex; }
+    .spinner { width:42px; height:42px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 1s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .loader p { color:var(--muted); font-size:.88rem; text-align:center; }
+
+    /* ─── Result sections ────────────────────────────────────── */
+    .rsect { display:none; animation:fadeUp .4s ease; }
+    .rsect.on { display:block; }
+
+    /* ─── Download box ───────────────────────────────────────── */
+    .dl-box {
+      background:rgba(74,222,128,.06); border:1px solid rgba(74,222,128,.2);
+      border-radius:14px; padding:28px 32px; text-align:center; margin-top:20px;
+    }
+    .dl-box h3 { font-family:var(--fh); font-size:1.25rem; color:var(--success); margin-bottom:6px; }
+    .dl-box p  { color:var(--muted); font-size:.87rem; margin-bottom:20px; }
+
+    /* ─── Info banner ────────────────────────────────────────── */
+    .info-bar {
+      background:rgba(129,140,248,.08); border:1px solid rgba(129,140,248,.2);
+      color:var(--accent2); padding:11px 15px; border-radius:8px;
+      font-size:.84rem; margin-bottom:16px; line-height:1.6;
+    }
+    /* ─── Alert ──────────────────────────────────────────────── */
+    .alert {
+      background:rgba(248,113,113,.1); border:1px solid rgba(248,113,113,.25);
+      color:var(--danger); padding:12px 16px; border-radius:8px;
+      font-size:.87rem; margin-top:12px; display:none;
+    }
+
+    /* ─── Responsive ─────────────────────────────────────────── */
+    @media(max-width:600px){
+      header { padding:16px 20px; }
+      .card  { padding:18px; }
+      .tips-grid { grid-template-columns:1fr; }
+      .score-row { flex-direction:column; }
+      .score-cmp { flex-direction:column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<header>
+  <div class="logo">Resume<span>IQ</span></div>
+  <span class="hbadge">✦ AI-Powered</span>
+</header>
+
+<!-- ── Hero ────────────────────────────────────────────────── -->
+<section class="hero">
+  <h1>Analyze Your Resume<br/>with <em>AI Precision</em></h1>
+  <p>Score your resume against any job description, get expert feedback, surgically improve weak points, and download a recruiter-ready PDF — all in one place.</p>
+</section>
+
+<!-- ── Tabs ─────────────────────────────────────────────────── -->
+<div class="tabs-wrap">
+  <button class="tab-btn active" onclick="switchTab('applicant',this)">🎯 Applicant Mode</button>
+  <button class="tab-btn"        onclick="switchTab('recruiter',this)">📋 Recruiter Mode</button>
+</div>
+
+<!-- ── Main ─────────────────────────────────────────────────── -->
+<main>
+
+  <!-- ════════════════════════════════════
+       APPLICANT TAB
+  ════════════════════════════════════ -->
+  <div id="tab-applicant" class="tab-panel active">
+
+    <!-- Step 1: Upload -->
+    <div class="card">
+      <div class="card-title">Step 1 — Upload Your Resume</div>
+      <div class="drop" id="drop1" onclick="document.getElementById('inp-file').click()">
+        <div class="dicon">📄</div>
+        <p>Click to upload or drag &amp; drop</p>
+        <p style="font-size:.76rem;margin-top:4px">PDF or DOCX · Max 5 MB</p>
+        <div class="fname" id="fname">No file selected</div>
+      </div>
+      <input type="file" id="inp-file" accept=".pdf,.docx" onchange="processFile(this.files[0])"/>
+      <div id="preview-wrap" style="display:none;margin-top:12px">
+        <label>Extracted Text Preview</label>
+        <textarea id="resume-text" rows="5" placeholder="Extracted resume text will appear here…"></textarea>
+      </div>
+    </div>
+
+    <!-- Step 2: JD -->
+    <div class="card">
+      <div class="card-title">Step 2 — Paste Job Description</div>
+      <label for="jd-text">Job Description</label>
+      <textarea id="jd-text" rows="6" placeholder="Paste the full job description here — include required skills, responsibilities, and qualifications…"></textarea>
+    </div>
+
+    <!-- Analyze btn -->
+    <button class="btn btn-primary btn-full" id="btn-analyze" onclick="doAnalyze()" disabled>
+      <span>✦</span> Analyze Match
+    </button>
+    <div class="alert" id="err-analyze"></div>
+
+    <!-- Analyze loader -->
+    <div class="loader" id="ld-analyze">
+      <div class="spinner"></div>
+      <p>Generating embeddings &amp; analyzing with AI…</p>
+    </div>
+
+    <!-- ── Analysis results ── -->
+    <div class="rsect" id="sec-result">
+
+      <!-- Score card -->
+      <div class="card" style="margin-top:24px">
+        <div class="card-title">Match Score</div>
+        <div class="score-row">
+          <div class="ring-wrap">
+            <svg width="120" height="120" viewBox="0 0 100 100">
+              <circle class="ring-bg"   cx="50" cy="50" r="45"/>
+              <circle class="ring-fill" cx="50" cy="50" r="45" id="ring1"/>
+            </svg>
+            <div class="ring-center">
+              <span class="ring-num" id="ring-num">0%</span>
+              <span class="ring-lbl">Match</span>
+            </div>
+          </div>
+          <div class="score-meta">
+            <h3 id="score-title">Calculating…</h3>
+            <p style="font-size:.84rem;color:var(--muted)" id="score-desc"></p>
+            <div class="bar-track" style="margin-top:12px">
+              <div class="bar-fill" id="score-bar" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Suggestions -->
+      <div class="card">
+        <div class="card-title">Suggestions</div>
+        <div class="suggestions-box" id="sugg-box"></div>
+      </div>
+
+      <!-- RAG tips -->
+      <div class="card" id="tips-card" style="display:none">
+        <div class="card-title">💡 Retrieved Tips (RAG)</div>
+        <p style="font-size:.81rem;color:var(--muted);margin-bottom:12px">
+          These tips were retrieved from the knowledge base using vector similarity search and injected into the AI prompt.
+        </p>
+        <div class="tips-grid" id="tips-grid"></div>
+      </div>
+
+      <!-- Improve btn -->
+      <button class="btn btn-outline btn-full" id="btn-improve" onclick="doSuggestImprovements()" style="margin-top:8px">
+        🔧 Improve My Resume
+      </button>
+    </div>
+
+    <!-- ── Improve loader ── -->
+    <div class="loader" id="ld-improve" style="margin-top:20px">
+      <div class="spinner"></div>
+      <p>Detecting weak bullet points &amp; generating surgical rewrites…<br/>
+         <span style="font-size:.8rem">(This may take 15–30 seconds)</span></p>
+    </div>
+
+    <!-- ── Improvement panel ── -->
+    <div class="rsect" id="sec-improve" style="margin-top:24px">
+
+      <!-- Summary stats -->
+      <div class="card">
+        <div class="card-title">Resume Analysis Summary</div>
+        <div class="stats-row">
+          <div class="chip c-total">
+            <div class="cv" id="st-total">—</div>
+            <div class="cl">Total Bullets</div>
+          </div>
+          <div class="chip c-strong">
+            <div class="cv" id="st-strong">—</div>
+            <div class="cl">Strong ✓</div>
+          </div>
+          <div class="chip c-weak">
+            <div class="cv" id="st-weak">—</div>
+            <div class="cl">Need Work ✗</div>
+          </div>
+        </div>
+        <div class="info-bar">
+          ℹ️ <strong>Strong bullets are kept exactly as they are.</strong>
+          Review the suggested rewrites below — accept what you agree with, reject what you don't.
+          Only accepted changes will be applied. No skills or facts are added that weren't already in your resume.
+        </div>
+      </div>
+
+      <!-- Strong bullets -->
+      <div class="card" id="card-strong" style="display:none">
+        <div class="card-title">✅ Strong Bullets — No Changes Needed</div>
+        <div class="strong-list" id="list-strong"></div>
+      </div>
+
+      <!-- Suggested changes -->
+      <div class="card" id="card-changes" style="display:none">
+        <div class="card-title">🔧 Suggested Improvements</div>
+        <div class="info-bar">
+          Accept or reject each change individually. Use the bulk controls for speed.
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:18px">
+          <button class="btn btn-accept btn-sm" onclick="bulkApprove(true)">✓ Accept All</button>
+          <button class="btn btn-reject btn-sm" onclick="bulkApprove(false)">✗ Reject All</button>
+        </div>
+        <div id="list-changes"></div>
+      </div>
+
+      <!-- Apply btn -->
+      <button class="btn btn-primary btn-full" id="btn-apply" onclick="doApply()" style="display:none">
+        ✦ Apply Accepted Changes &amp; Re-Score
+      </button>
+      <div class="alert" id="err-improve"></div>
+    </div>
+
+    <!-- ── Apply loader ── -->
+    <div class="loader" id="ld-apply" style="margin-top:20px">
+      <div class="spinner"></div>
+      <p>Applying changes &amp; re-computing match score…</p>
+    </div>
+
+    <!-- ── Final section ── -->
+    <div class="rsect" id="sec-final" style="margin-top:24px">
+
+      <!-- Before/after score -->
+      <div class="card">
+        <div class="card-title">Score Improvement</div>
+        <div class="score-cmp">
+          <div class="sbox orig">
+            <div class="sl">Original Score</div>
+            <div class="sv" id="sv-orig">—</div>
+          </div>
+          <div class="sarrow">→</div>
+          <div class="sbox impr">
+            <div class="sl">Improved Score</div>
+            <div class="sv" id="sv-new">—</div>
+          </div>
+          <div class="sdelta">
+            <div class="dl">Improvement</div>
+            <div class="dv" id="sv-delta">—</div>
+          </div>
+        </div>
+        <p style="text-align:center;font-size:.81rem;color:var(--muted);margin-top:8px" id="apply-info"></p>
+      </div>
+
+      <!-- Download -->
+      <div class="dl-box">
+        <h3>📄 Your Improved Resume is Ready</h3>
+        <p>A professionally formatted PDF has been generated with all your approved changes applied.<br/>
+           Ready to send directly to recruiters.</p>
+        <div class="loader" id="ld-pdf" style="padding:14px">
+          <div class="spinner"></div>
+          <p>Building your professional PDF…</p>
+        </div>
+        <button class="btn btn-download" id="btn-dl" style="display:none" onclick="doDownload()">
+          ⬇ Download Improved Resume PDF
+        </button>
+        <div class="alert" id="err-pdf"></div>
+        <p style="font-size:.73rem;color:var(--muted);margin-top:10px" id="dl-fname"></p>
+      </div>
+    </div>
+
+  </div><!-- /applicant -->
+
+  <!-- ════════════════════════════════════
+       RECRUITER TAB
+  ════════════════════════════════════ -->
+  <div id="tab-recruiter" class="tab-panel">
+
+    <div class="card">
+      <div class="card-title">Upload Resumes (2 – 5)</div>
+      <div class="drop drop-multi" id="drop2" onclick="document.getElementById('inp-multi').click()">
+        <div class="dicon">📂</div>
+        <p>Click or drag to upload multiple resumes</p>
+        <p style="font-size:.76rem;margin-top:4px">PDF or DOCX · Up to 5 files</p>
+      </div>
+      <input type="file" id="inp-multi" accept=".pdf,.docx" multiple onchange="setMulti(Array.from(this.files))"/>
+      <div class="pills" id="pills"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Job Description</div>
+      <label for="r-jd">Paste the job description to rank candidates against</label>
+      <textarea id="r-jd" rows="5" placeholder="Paste job description here…"></textarea>
+    </div>
+
+    <button class="btn btn-primary btn-full" id="btn-rank" onclick="doRank()" disabled>
+      <span>✦</span> Rank Candidates
+    </button>
+    <div class="alert" id="err-rank"></div>
+
+    <div class="loader" id="ld-rank">
+      <div class="spinner"></div>
+      <p>Processing resumes and computing rankings…</p>
+    </div>
+
+    <div class="rsect" id="sec-rank" style="margin-top:24px">
+      <div class="card">
+        <div class="card-title">Candidate Rankings</div>
+        <div class="rank-list" id="rank-list"></div>
+      </div>
+    </div>
+
+  </div><!-- /recruiter -->
+
+</main>
+
+<!-- ── JavaScript ────────────────────────────────────────────── -->
+<script>
+  'use strict';
+
+  const BASE = 'http://localhost:8000';
+
+  /* ── State ─────────────────────────────────────────────────── */
+  let resumeText      = '';   // extracted text from uploaded file
+  let currentJD       = '';   // job description
+  let suggestedChgs   = [];   // [{original,rewritten,changes_made,jd_alignment,approved}]
+  let improvedText    = '';   // resume text after approved changes
+  let multiFiles      = [];   // files for recruiter mode
+  let pdfBlobUrl      = null; // cached object URL for re-download
+
+  /* ── Tab switch ─────────────────────────────────────────────── */
+  function switchTab(tab, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+  }
+
+  /* ── Drag-drop (single) ─────────────────────────────────────── */
+  const dz1 = document.getElementById('drop1');
+  dz1.addEventListener('dragover',  e => { e.preventDefault(); dz1.classList.add('over'); });
+  dz1.addEventListener('dragleave', ()=> dz1.classList.remove('over'));
+  dz1.addEventListener('drop', e => {
+    e.preventDefault(); dz1.classList.remove('over');
+    const f = e.dataTransfer.files[0]; if (f) processFile(f);
+  });
+
+  /* ── Upload & extract ───────────────────────────────────────── */
+  async function processFile(file) {
+    document.getElementById('fname').textContent = '📎 ' + file.name;
+    document.getElementById('preview-wrap').style.display = 'none';
+    document.getElementById('resume-text').value = '';
+    resumeText = '';
+    dis('btn-analyze', true);
+    resetImprovUI();
+
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res  = await fetch(`${BASE}/upload-resume`, { method:'POST', body:fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      resumeText = data.extracted_text;
+      document.getElementById('resume-text').value = resumeText;
+      document.getElementById('preview-wrap').style.display = 'block';
+      dis('btn-analyze', false);
+    } catch(e) { showErr('err-analyze', 'Upload failed: ' + e.message); }
+  }
+
+  /* ── Analyze ─────────────────────────────────────────────────── */
+  async function doAnalyze() {
+    const jd = document.getElementById('jd-text').value.trim();
+    const rt = document.getElementById('resume-text').value.trim();
+    if (!rt) { showErr('err-analyze', 'Please upload a resume first.'); return; }
+    if (!jd) { showErr('err-analyze', 'Please paste a job description.'); return; }
+
+    currentJD = jd;
+    hide('err-analyze');
+    off('sec-result');
+    resetImprovUI();
+    on('ld-analyze');
+    dis('btn-analyze', true);
+
+    try {
+      const fd = new FormData();
+      fd.append('resume_text', rt);
+      fd.append('job_description', jd);
+      const res  = await fetch(`${BASE}/analyze`, { method:'POST', body:fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Analysis failed');
+
+      animScore(data.score);
+      document.getElementById('sugg-box').textContent = data.suggestions;
+
+      if (data.retrieved_tips?.length) {
+        const grid = document.getElementById('tips-grid');
+        grid.innerHTML = '';
+        data.retrieved_tips.forEach(t => {
+          const d = document.createElement('div');
+          d.className   = 'tip-card';
+          d.textContent = t.replace(/^TIP:\s*/i,'');
+          grid.appendChild(d);
+        });
+        document.getElementById('tips-card').style.display = 'block';
+      }
+      on('sec-result');
+    } catch(e) { showErr('err-analyze', 'Analysis error: ' + e.message); }
+    finally    { off('ld-analyze'); dis('btn-analyze', false); }
+  }
+
+  /* ── Score ring animation ────────────────────────────────────── */
+  function animScore(score) {
+    const ring  = document.getElementById('ring1');
+    const numEl = document.getElementById('ring-num');
+    const bar   = document.getElementById('score-bar');
+    const title = document.getElementById('score-title');
+    const desc  = document.getElementById('score-desc');
+    let cur = 0; const step = score / 60;
+    const iv = setInterval(()=>{ cur = Math.min(cur+step,score); numEl.textContent=Math.round(cur)+'%'; if(cur>=score)clearInterval(iv); },16);
+    ring.style.strokeDashoffset = 283*(1-score/100);
+    if      (score>=75){ ring.style.stroke='#6ee7b7'; title.textContent='Excellent Match 🎉'; }
+    else if (score>=55){ ring.style.stroke='#fbbf24'; title.textContent='Good Match 👍'; }
+    else if (score>=35){ ring.style.stroke='#fb923c'; title.textContent='Moderate Match ⚡'; }
+    else               { ring.style.stroke='#f87171'; title.textContent='Low Match 📝'; }
+    desc.textContent = `Your resume is a ${score}% semantic match with the job description.`;
+    setTimeout(()=>{ bar.style.width = score+'%'; }, 100);
+  }
+
+  /* ── Step 1: suggest improvements ───────────────────────────── */
+  async function doSuggestImprovements() {
+    const rt = document.getElementById('resume-text').value.trim();
+    if (!rt || !currentJD) { showErr('err-analyze','Please analyze your resume first.'); return; }
+
+    off('sec-improve'); off('sec-final');
+    resetImprovUI();
+    on('ld-improve');
+    dis('btn-improve', true);
+    hide('err-improve');
+
+    try {
+      const fd = new FormData();
+      fd.append('resume_text', rt);
+      fd.append('job_description', currentJD);
+      const res  = await fetch(`${BASE}/suggest-improvements`, { method:'POST', body:fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Improvement analysis failed');
+
+      suggestedChgs = data.suggested_changes || [];
+
+      // Stats
+      document.getElementById('st-total').textContent  = data.total_bullets;
+      document.getElementById('st-strong').textContent = data.strong_count;
+      document.getElementById('st-weak').textContent   = data.weak_count;
+
+      // Strong list
+      const sl = document.getElementById('list-strong');
+      sl.innerHTML = '';
+      if (data.strong_bullets?.length) {
+        data.strong_bullets.forEach(b => {
+          const d = document.createElement('div');
+          d.className = 'strong-item'; d.textContent = b;
+          sl.appendChild(d);
+        });
+        document.getElementById('card-strong').style.display = 'block';
+      }
+
+      // Change cards
+      if (suggestedChgs.length) {
+        renderChangeCards();
+        document.getElementById('card-changes').style.display = 'block';
+        document.getElementById('btn-apply').style.display    = 'block';
+      }
+
+      on('sec-improve');
+    } catch(e) { showErr('err-improve','Improvement error: ' + e.message); }
+    finally    { off('ld-improve'); dis('btn-improve', false); }
+  }
+
+  /* ── Render change cards ─────────────────────────────────────── */
+  function renderChangeCards() {
+    const list = document.getElementById('list-changes');
+    list.innerHTML = '';
+    suggestedChgs.forEach((chg, i) => {
+      chg.approved = true;   // default: accepted
+      const card = document.createElement('div');
+      card.className = 'chg-card accepted';
+      card.id = 'chg-' + i;
+      card.innerHTML = `
+        <div class="chg-head">
+          <span class="blabel bl-w">Needs Improvement</span>
+          <div class="chg-acts">
+            <button class="btn btn-accept btn-sm" id="acc-${i}" onclick="setApproval(${i},true)">✓ Accept</button>
+            <button class="btn btn-reject btn-sm" id="rej-${i}" onclick="setApproval(${i},false)">✗ Reject</button>
+          </div>
+        </div>
+        <div class="diff-before">
+          <div class="diff-lbl">Before</div>
+          ${esc(chg.original || '')}
+        </div>
+        <div class="diff-after">
+          <div class="diff-lbl">After</div>
+          ${esc(chg.rewritten || '')}
+        </div>
+        <div class="chg-reason">
+          <strong>Changes made:</strong> ${esc(chg.changes_made || '')}
+          ${chg.jd_alignment ? `<br/><strong>JD alignment:</strong> ${esc(chg.jd_alignment)}` : ''}
+        </div>`;
+      list.appendChild(card);
+    });
+  }
+
+  function setApproval(i, approved) {
+    suggestedChgs[i].approved = approved;
+    const card = document.getElementById('chg-'+i);
+    card.classList.toggle('accepted', approved);
+    card.classList.toggle('rejected', !approved);
+  }
+
+  function bulkApprove(v) { suggestedChgs.forEach((_,i)=>setApproval(i,v)); }
+
+  /* ── Step 2: apply improvements ─────────────────────────────── */
+  async function doApply() {
+    const rt = document.getElementById('resume-text').value.trim();
+    const accepted = suggestedChgs.filter(c=>c.approved).length;
+    if (!accepted) { showErr('err-improve','Please accept at least one change.'); return; }
+
+    hide('err-improve'); off('sec-final');
+    on('ld-apply'); dis('btn-apply', true);
+
+    try {
+      const fd = new FormData();
+      fd.append('resume_text',      rt);
+      fd.append('job_description',  currentJD);
+      fd.append('approved_changes', JSON.stringify(suggestedChgs));
+      const res  = await fetch(`${BASE}/apply-improvements`, { method:'POST', body:fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Apply failed');
+
+      improvedText = data.updated_resume;
+
+      document.getElementById('sv-orig').textContent  = data.original_score + '%';
+      document.getElementById('sv-new').textContent   = data.improved_score + '%';
+      const delta = data.improvement >= 0 ? '+'+data.improvement : data.improvement;
+      document.getElementById('sv-delta').textContent = delta + '%';
+      document.getElementById('apply-info').textContent =
+        `${data.approved_count} change${data.approved_count!==1?'s':''} applied.`;
+
+      on('sec-final');
+      triggerPDFGen();
+    } catch(e) { showErr('err-improve','Apply error: ' + e.message); }
+    finally    { off('ld-apply'); dis('btn-apply', false); }
+  }
+
+  /* ── Step 3: generate PDF ────────────────────────────────────── */
+  async function triggerPDFGen() {
+    document.getElementById('ld-pdf').style.display   = 'flex';
+    document.getElementById('btn-dl').style.display   = 'none';
+    document.getElementById('dl-fname').textContent   = '';
+    hide('err-pdf');
+    pdfBlobUrl = null;
+
+    try {
+      const fd = new FormData();
+      fd.append('improved_resume_text', improvedText);
+      fd.append('job_description',      currentJD);
+      fd.append('candidate_name',       'Candidate');
+      const res = await fetch(`${BASE}/generate-resume-pdf`, { method:'POST', body:fd });
+      if (!res.ok) { const j=await res.json().catch(()=>({})); throw new Error(j.detail||'PDF failed'); }
+
+      const disp = res.headers.get('Content-Disposition')||'';
+      const m    = disp.match(/filename=([^;]+)/);
+      const fn   = m ? m[1].replace(/"/g,'') : 'Improved_Resume_ResumeIQ.pdf';
+
+      const blob = await res.blob();
+      pdfBlobUrl = URL.createObjectURL(blob);
+      triggerDownload(pdfBlobUrl, fn);
+
+      document.getElementById('btn-dl').style.display = 'inline-flex';
+      document.getElementById('dl-fname').textContent = 'File: ' + fn;
+    } catch(e) { showErr('err-pdf','PDF error: ' + e.message); }
+    finally    { document.getElementById('ld-pdf').style.display = 'none'; }
+  }
+
+  function doDownload() {
+    if (pdfBlobUrl) {
+      const fn = document.getElementById('dl-fname').textContent.replace('File: ','').trim()
+                 || 'Improved_Resume_ResumeIQ.pdf';
+      triggerDownload(pdfBlobUrl, fn);
+    }
+  }
+
+  function triggerDownload(url, filename) {
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+
+  /* ── Recruiter mode ──────────────────────────────────────────── */
+  const dz2 = document.getElementById('drop2');
+  dz2.addEventListener('dragover',  e => { e.preventDefault(); dz2.classList.add('over'); });
+  dz2.addEventListener('dragleave', ()=> dz2.classList.remove('over'));
+  dz2.addEventListener('drop', e => { e.preventDefault(); dz2.classList.remove('over'); setMulti(Array.from(e.dataTransfer.files)); });
+
+  function setMulti(files) {
+    multiFiles = files.filter(f=>f.name.endsWith('.pdf')||f.name.endsWith('.docx')).slice(0,5);
+    const p = document.getElementById('pills');
+    p.innerHTML = '';
+    multiFiles.forEach(f => {
+      const s = document.createElement('span');
+      s.className='pill'; s.textContent='📎 '+f.name; p.appendChild(s);
+    });
+    dis('btn-rank', multiFiles.length < 2);
+  }
+
+  async function doRank() {
+    const jd = document.getElementById('r-jd').value.trim();
+    if (!jd)                 { showErr('err-rank','Please paste a job description.'); return; }
+    if (multiFiles.length<2) { showErr('err-rank','Upload at least 2 resumes.');      return; }
+
+    hide('err-rank'); off('sec-rank');
+    on('ld-rank'); dis('btn-rank',true);
+
+    try {
+      const fd = new FormData();
+      multiFiles.forEach(f => fd.append('files',f));
+      fd.append('job_description', jd);
+      const res  = await fetch(`${BASE}/rank-resumes`, { method:'POST', body:fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail||'Ranking failed');
+
+      const list = document.getElementById('rank-list');
+      list.innerHTML = '';
+      const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+      data.candidates.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'rank-item';
+        item.innerHTML = `
+          <div class="rank-badge">${medals[c.rank-1]||c.rank}</div>
+          <div class="rank-info">
+            <div class="rank-name">${esc(c.filename)}</div>
+            <div class="rank-meta">${c.word_count} words</div>
+          </div>
+          <div class="rank-bar"><div class="rank-bar-fill" style="width:${c.score}%"></div></div>
+          <div class="rank-score">${c.score}%</div>`;
+        list.appendChild(item);
+      });
+      on('sec-rank');
+    } catch(e) { showErr('err-rank','Ranking error: ' + e.message); }
+    finally    { off('ld-rank'); dis('btn-rank',false); }
+  }
+
+  /* ── UI helpers ─────────────────────────────────────────────── */
+  function on(id)  { const e=document.getElementById(id); if(e){ e.classList.add('on');    if(e.classList.contains('loader')) e.style.display='flex'; } }
+  function off(id) { const e=document.getElementById(id); if(e){ e.classList.remove('on'); if(e.classList.contains('loader')) e.style.display='none'; } }
+  function dis(id,v) { const e=document.getElementById(id); if(e) e.disabled=v; }
+  function hide(id)  { const e=document.getElementById(id); if(e) e.style.display='none'; }
+  function showErr(id,msg) { const e=document.getElementById(id); if(e){ e.textContent=msg; e.style.display='block'; } }
+  function esc(s)  { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function resetImprovUI() {
+    off('sec-improve'); off('sec-final');
+    document.getElementById('btn-apply').style.display    = 'none';
+    document.getElementById('card-changes').style.display = 'none';
+    document.getElementById('card-strong').style.display  = 'none';
+    document.getElementById('list-changes').innerHTML     = '';
+    document.getElementById('list-strong').innerHTML      = '';
+    document.getElementById('tips-card').style.display    = 'none';
+    suggestedChgs = []; improvedText = ''; pdfBlobUrl = null;
+  }
+</script>
+</body>
+</html>
